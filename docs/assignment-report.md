@@ -1,103 +1,140 @@
-# Library Manager Assignment Report
+# Project Report: Library Manager Spring Boot Application
 
 ## GitHub URL
 
-https://github.com/umarmuhdhor/Remix-StockApp.git
+https://github.com/bhanage-viraj/library-manager-assignment
+
+## Introduction
+
+The Library Manager application is a Spring Boot web application built to manage two related entities: `Author` and `Book`. The application supports creating, reading, and updating records through JSP pages. It uses Spring MVC, Spring Data JPA, Hibernate, H2 database, JSTL, and CSS for styling.
 
 ## Entity Relationship Design
 
-The application manages two entities: `Author` and `Book`.
+The application uses two entities: `Author` and `Book`.
 
-`Author` represents a writer in the system. It stores the author's name, email, country, and biography. Email is unique to prevent duplicate author records.
+`Author` stores:
 
-`Book` represents a catalog item. It stores title, ISBN, genre, publication year, price, and a required author reference. ISBN is unique to protect catalog integrity.
+- id
+- name
+- email
+- country
+- biography
 
-The relationship is one author to many books:
+`Book` stores:
 
-- `Author` uses `@OneToMany(mappedBy = "author", cascade = CascadeType.ALL, orphanRemoval = true)`.
-- `Book` uses `@ManyToOne(fetch = FetchType.LAZY)` and `@JoinColumn(name = "author_id", nullable = false)`.
+- id
+- title
+- isbn
+- genre
+- publication year
+- price
+- author reference
 
-The database is created by Hibernate from the JPA annotations. The H2 database is populated by `src/main/resources/data.sql` with 10 authors and 10 books.
+The relationship is one-to-many: one author can have many books, and each book belongs to one author.
+
+```java
+@OneToMany(mappedBy = "author", cascade = CascadeType.ALL, orphanRemoval = true)
+private List<Book> books;
+```
+
+```java
+@ManyToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "author_id", nullable = false)
+private Author author;
+```
+
+## Database Population
+
+The database tables are generated automatically using JPA annotations and Hibernate. The application uses an H2 in-memory database. Sample data is inserted using `data.sql`, which contains 10 authors and 10 books.
 
 ## Create Operation
 
-Create screens are implemented with JSP and Spring form tags:
+The create operation is implemented using JSP forms.
 
-- `/authors/new` displays the author creation form.
-- `/books/new` displays the book creation form with an author dropdown.
+Author creation:
 
-Controller methods:
+- URL: `/authors/new`
+- Controller method: `AuthorController#createAuthor`
 
-- `AuthorController#createAuthor`
-- `BookController#createBook`
+Book creation:
 
-Both methods bind form data with `@ModelAttribute`, validate it with `@Valid`, and persist data through the service layer. Integrity violations such as duplicate email or duplicate ISBN are caught with `DataIntegrityViolationException` and returned to the JSP as field errors.
+- URL: `/books/new`
+- Controller method: `BookController#createBook`
+
+The form data is bound using `@ModelAttribute` and validated using `@Valid`. Duplicate email and duplicate ISBN errors are handled using `DataIntegrityViolationException`.
 
 ## Read Operation
 
-Read screens:
+The read operation displays all saved records in JSP tables.
 
-- `/authors` displays all authors.
-- `/books` displays books with author details.
+Author list:
 
-Controller methods:
+- URL: `/authors`
+- Controller method: `AuthorController#listAuthors`
 
-- `AuthorController#listAuthors`
-- `BookController#listBooks`
+Book list:
 
-The book list uses a custom repository query:
+- URL: `/books`
+- Controller method: `BookController#listBooks`
+
+A custom repository query performs an inner join between `Book` and `Author`.
 
 ```java
 @Query("""
-        select new com.example.librarymanager.dto.BookAuthorView(...)
-        from Book b
-        inner join b.author a
-        order by a.name asc, b.title asc
-        """)
+    select new com.example.librarymanager.dto.BookAuthorView(
+        b.id, b.title, b.isbn, b.genre, b.publicationYear,
+        b.price, a.id, a.name, a.email
+    )
+    from Book b
+    inner join b.author a
+    order by a.name asc, b.title asc
+""")
 List<BookAuthorView> findBookAuthorViews();
 ```
 
-This satisfies the required inner join between the two entities and returns a projection containing both book and author fields.
-
 ## Update Operation
 
-Update screens:
+The update operation allows editing existing authors and books.
 
-- `/authors/{id}/edit`
-- `/books/{id}/edit`
+Author update:
 
-Controller methods:
+- URL: `/authors/{id}/edit`
+- Controller method: `AuthorController#updateAuthor`
 
-- `AuthorController#updateAuthor`
-- `BookController#updateBook`
+Book update:
 
-The update methods load an existing entity by id, copy editable form fields, validate selected relationships, and save changes through the service layer.
+- URL: `/books/{id}/edit`
+- Controller method: `BookController#updateBook`
+
+The service layer first fetches the existing entity, updates editable fields, and saves the result back to the database.
 
 ## Repository Layer
 
-Repositories extend `JpaRepository`:
+The repositories extend `JpaRepository`.
 
-- `AuthorRepository extends JpaRepository<Author, Long>`
-- `BookRepository extends JpaRepository<Book, Long>`
+```java
+public interface AuthorRepository extends JpaRepository<Author, Long>
+```
 
-Additional query methods:
+```java
+public interface BookRepository extends JpaRepository<Book, Long>
+```
 
-- `AuthorRepository#findByEmail`
-- `BookRepository#findByIsbn`
-- `BookRepository#findBookAuthorViews`
+Custom methods include:
+
+- `findByEmail`
+- `findByIsbn`
+- `findBookAuthorViews`
 
 ## Service Layer
 
-Service classes hold business logic:
-
-- `AuthorService`
-- `BookService`
-
-`BookService` resolves the submitted author id into a managed `Author` entity before saving a book. This prevents invalid foreign-key relationships and keeps controller logic focused on HTTP concerns.
+The service layer contains business logic and connects controllers with repositories. `BookService` resolves the selected author before saving a book, ensuring that every book has a valid author relationship.
 
 ## View Layer
 
-JSP files are stored under `src/main/webapp/WEB-INF/jsp`.
+The JSP pages are stored in `src/main/webapp/WEB-INF/jsp`.
+
+Pages created:
 
 - `authors/list.jsp`
 - `authors/form.jsp`
@@ -105,45 +142,48 @@ JSP files are stored under `src/main/webapp/WEB-INF/jsp`.
 - `books/form.jsp`
 - `fragments/navigation.jspf`
 
-The styles are in `src/main/resources/static/css/styles.css`. The pages use JSTL, Expression Language, and Spring form tags for binding and validation messages.
+CSS styling is implemented in `src/main/resources/static/css/styles.css`.
 
 ## Testing
 
-Repository tests use `@DataJpaTest`:
+JUnit and Mockito tests were added for repository and service layers.
 
-- Seeded rows are loaded.
-- Finder methods work.
-- The inner join projection returns expected book-author rows.
+Repository tests verify:
 
-Service tests use JUnit 5 and Mockito:
+- seeded data loading
+- custom finder methods
+- inner join query result
 
-- `AuthorService` find and update behavior.
-- `BookService` author resolution, update behavior, missing-author handling, and join projection delegation.
+Service tests verify:
 
-Run tests with:
+- create/save behavior
+- update behavior
+- missing author handling
+- repository integration
+
+Run tests using:
 
 ```bash
 mvn test
 ```
 
-## Screenshots
+## Screenshots To Include
 
-The application has the following pages ready for screenshots after Java 17 and Maven are installed and the app is started with `mvn spring-boot:run`:
+Add screenshots of:
 
-- `http://localhost:8080/books` - joined book and author listing.
-- `http://localhost:8080/books/new` - book creation form.
-- `http://localhost:8080/authors` - author listing.
-- `http://localhost:8080/authors/new` - author creation form.
-- `http://localhost:8080/books/{id}/edit` - book update form.
-- `http://localhost:8080/authors/{id}/edit` - author update form.
-
-Local screenshot capture could not be completed in this workspace because the machine does not currently have Java, Maven, or Gradle installed.
+- Books list page
+- Add book page
+- Authors list page
+- Add author page
+- Update book page
+- Update author page
 
 ## Challenges Faced
 
-The main design challenge was handling the relationship from the book form. The form submits only the selected author id, while JPA needs a managed `Author` entity. This is handled in `BookService#resolveAuthor`, which looks up the author and rejects missing ids.
+One challenge was handling the relationship between books and authors in the book form. The form submits an author id, but JPA needs a managed `Author` entity. This was solved in the service layer by looking up the selected author before saving the book.
 
-Another challenge was making integrity errors readable for users. Duplicate emails and ISBNs are caught in the controller and bound back to the corresponding form field.
+Another challenge was displaying user-friendly validation errors for duplicate values. This was handled by catching integrity exceptions and binding clear error messages back to the JSP form fields.
 
-Local execution was blocked because this machine does not have a Java runtime or Maven installed. The project is still structured as a standard Maven Spring Boot application and is ready to run on a machine with Java 17 and Maven.
+## Conclusion
 
+The Library Manager application satisfies the assignment requirements by implementing two related JPA entities, database population, create/read/update operations, JSP views, service and repository layers, custom inner join query, CSS styling, and unit tests.
