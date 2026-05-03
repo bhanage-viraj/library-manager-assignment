@@ -1,0 +1,12 @@
+<header class="site-header">
+    <div class="site-title">
+        <a href="${pageContext.request.contextPath}/books">Library Manager</a>
+    </div>
+    <nav class="site-nav" aria-label="Primary navigation">
+        <a href="${pageContext.request.contextPath}/books">Books</a>
+        <a href="${pageContext.request.contextPath}/authors">Authors</a>
+        <a href="${pageContext.request.contextPath}/books/new">Add Book</a>
+        <a href="${pageContext.request.contextPath}/authors/new">Add Author</a>
+    </nav>
+</header>
+
